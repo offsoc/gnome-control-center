@@ -49,15 +49,15 @@ background-preview .window.front.dark .header-bar {
 }
 
 .background-preview-button:checked {
-  box-shadow: 0 0 0 3px @accent_color;
+  box-shadow: 0 0 0 3px @accent_bg_color;
 }
 
 .background-preview-button:focus:focus-visible {
-  box-shadow: 0 0 0 3px alpha(@accent_color, .3);
+  box-shadow: 0 0 0 3px alpha(@accent_bg_color, .3);
 }
 
 .background-preview-button:checked:focus:focus-visible {
-  box-shadow: 0 0 0 3px @accent_color, 0 0 0 6px alpha(@accent_color, .3);
+  box-shadow: 0 0 0 3px @accent_bg_color, 0 0 0 6px alpha(@accent_bg_color, .3);
 }
 
 .background-flowbox > flowboxchild {
@@ -94,3 +94,20 @@ flowboxchild:selected .selected-check {
   min-height: 0;
   margin: 6px;
 }
+
+.accent-button {
+  border-radius: 9999px;
+  padding: 3px;
+  background: transparent;
+  min-width: 24px;
+  min-height: 24px;
+}
+
+.accent-button:checked {
+  box-shadow: 0 0 0 3px @accent_bg_color;
+}
+
+.accent-button > widget {
+  border-radius: 9999px;
+}
+

@@ -252,6 +252,8 @@ cc_application_startup (GApplication *application)
   gtk_style_context_add_provider_for_display (gdk_display_get_default (),
                                               GTK_STYLE_PROVIDER (provider),
                                               GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+
+  adw_style_manager_set_follow_system_accent_color (adw_style_manager_get_default (), TRUE);
 }
 
 static void

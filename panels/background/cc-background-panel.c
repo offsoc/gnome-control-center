@@ -29,6 +29,7 @@
 
 #include "cc-background-panel.h"
 
+#include "cc-accent-color.h"
 #include "cc-background-chooser.h"
 #include "cc-background-item.h"
 #include "cc-background-preview.h"
@@ -46,6 +47,7 @@
 
 #define INTERFACE_PATH_ID "org.gnome.desktop.interface"
 #define INTERFACE_COLOR_SCHEME_KEY "color-scheme"
+#define INTERFACE_ACCENT_COLOR_KEY "accent-color"
 
 struct _CcBackgroundPanel
 {
@@ -61,6 +63,7 @@ struct _CcBackgroundPanel
 
   CcBackgroundItem *current_background;
 
+  GtkWidget *accent_box;
   CcBackgroundChooser *background_chooser;
   CcBackgroundPreview *default_preview;
   CcBackgroundPreview *dark_preview;
@@ -83,7 +86,135 @@ load_custom_css (CcBackgroundPanel *self)
 }
 
 static void
-reload_color_scheme_toggles (CcBackgroundPanel *self)
+transition_screen (CcBackgroundPanel *self)
+{
+  g_autoptr (GError) error = NULL;
+
+  if (!self->proxy)
+    return;
+
+  g_dbus_proxy_call_sync (self->proxy,
+                          "ScreenTransition",
+                          NULL,
+                          G_DBUS_CALL_FLAGS_NONE,
+                          -1,
+                          NULL,
+                          &error);
+
+  if (error)
+    g_warning ("Couldn't transition screen: %s", error->message);
+}
+
+static void
+on_accent_color_toggled_cb (CcBackgroundPanel *self,
+                                  GtkToggleButton   *toggle)
+{
+  CcAccentColor *accent_color_widget = CC_ACCENT_COLOR (gtk_widget_get_first_child (GTK_WIDGET (toggle)));
+  AdwAccentColor accent_color_from_key;
+  AdwAccentColor accent_color = *cc_accent_color_get_accent_color (accent_color_widget);
+
+  /* There's no equivalent in GDesktopAccentColor */
+  g_assert (accent_color != ADW_ACCENT_COLOR_DEFAULT);
+
+  accent_color_from_key = g_settings_get_enum (self->interface_settings,
+                                               INTERFACE_ACCENT_COLOR_KEY) + 1;
+
+  /* Don't unnecessarily set the key again */
+  if (accent_color == accent_color_from_key)
+    return;
+
+  transition_screen (self);
+
+  g_settings_set_enum (self->interface_settings,
+                       INTERFACE_ACCENT_COLOR_KEY,
+                       accent_color - 1);
+
+}
+
+/* Adapted from adw-inspector-page.c */
+static char *
+get_color_tooltip (AdwAccentColor color)
+{
+  switch (color) {
+  case ADW_ACCENT_COLOR_DEFAULT:
+    return g_strdup (_("Default"));
+  case ADW_ACCENT_COLOR_BLUE:
+    return g_strdup (_("Blue"));
+  case ADW_ACCENT_COLOR_TEAL:
+    return g_strdup (_("Teal"));
+  case ADW_ACCENT_COLOR_GREEN:
+    return g_strdup (_("Green"));
+  case ADW_ACCENT_COLOR_YELLOW:
+    return g_strdup (_("Yellow"));
+  case ADW_ACCENT_COLOR_ORANGE:
+    return g_strdup (_("Orange"));
+  case ADW_ACCENT_COLOR_RED:
+    return g_strdup (_("Red"));
+  case ADW_ACCENT_COLOR_PINK:
+    return g_strdup (_("Pink"));
+  case ADW_ACCENT_COLOR_PURPLE:
+    return g_strdup (_("Purple"));
+  case ADW_ACCENT_COLOR_BROWN:
+    return g_strdup (_("Brown"));
+  case ADW_ACCENT_COLOR_SLATE:
+    return g_strdup (_("Slate"));
+  default:
+    g_assert_not_reached ();
+  }
+}
+
+static void
+setup_accent_color_toggles (CcBackgroundPanel *self)
+{
+  AdwAccentColor accent_color = g_settings_get_enum (self->interface_settings, INTERFACE_ACCENT_COLOR_KEY) + 1;
+  AdwAccentColor i;
+
+  for (i = ADW_ACCENT_COLOR_BLUE; i <= ADW_ACCENT_COLOR_SLATE; i++)
+    {
+      GtkWidget *button = GTK_WIDGET (gtk_toggle_button_new ());
+      GtkWidget *color_widget = cc_accent_color_new (i);
+      GtkToggleButton *grouping_button = GTK_TOGGLE_BUTTON (gtk_widget_get_first_child (self->accent_box));
+
+      gtk_widget_set_tooltip_text (button, get_color_tooltip (i));
+      gtk_widget_add_css_class (button, "accent-button");
+      gtk_widget_set_overflow (color_widget, GTK_OVERFLOW_HIDDEN);
+      gtk_button_set_child (GTK_BUTTON (button), color_widget);
+      g_signal_connect_object (button, "toggled",
+                               G_CALLBACK (on_accent_color_toggled_cb),
+                               self,
+                               G_CONNECT_SWAPPED);
+
+      if (grouping_button != NULL)
+        gtk_toggle_button_set_group (GTK_TOGGLE_BUTTON (button), grouping_button);
+
+      if (i == accent_color)
+        gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (button), TRUE);
+
+      gtk_box_append (GTK_BOX (self->accent_box), button);
+    }
+}
+
+static void
+reload_accent_color_toggles (CcBackgroundPanel *self)
+{
+  AdwAccentColor accent_color = g_settings_get_enum (self->interface_settings, INTERFACE_ACCENT_COLOR_KEY) + 1;
+  GtkWidget *child;
+
+  for (child = gtk_widget_get_first_child (self->accent_box);
+       child;
+       child = gtk_widget_get_next_sibling (child)) {
+    CcAccentColor *accent_color_widget = CC_ACCENT_COLOR (gtk_widget_get_first_child (child));
+    AdwAccentColor *child_color = cc_accent_color_get_accent_color (accent_color_widget);
+
+    if (*child_color == accent_color)
+      gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (child), TRUE);
+    else
+      gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (child), FALSE);
+  }
+}
+
+static void
+reload_color_scheme (CcBackgroundPanel *self)
 {
   GDesktopColorScheme scheme;
 
@@ -102,26 +233,6 @@ reload_color_scheme_toggles (CcBackgroundPanel *self)
       gtk_toggle_button_set_active (self->default_toggle, FALSE);
       gtk_toggle_button_set_active (self->dark_toggle, FALSE);
     }
-}
-
-static void
-transition_screen (CcBackgroundPanel *self)
-{
-  g_autoptr (GError) error = NULL;
-
-  if (!self->proxy)
-    return;
-
-  g_dbus_proxy_call_sync (self->proxy,
-                          "ScreenTransition",
-                          NULL,
-                          G_DBUS_CALL_FLAGS_NONE,
-                          -1,
-                          NULL,
-                          &error);
-
-  if (error)
-    g_warning ("Couldn't transition screen: %s", error->message);
 }
 
 static void
@@ -386,6 +497,7 @@ cc_background_panel_class_init (CcBackgroundPanelClass *klass)
 
   gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/control-center/background/cc-background-panel.ui");
 
+  gtk_widget_class_bind_template_child (widget_class, CcBackgroundPanel, accent_box);
   gtk_widget_class_bind_template_child (widget_class, CcBackgroundPanel, background_chooser);
   gtk_widget_class_bind_template_child (widget_class, CcBackgroundPanel, default_preview);
   gtk_widget_class_bind_template_child (widget_class, CcBackgroundPanel, dark_preview);
@@ -429,11 +541,18 @@ cc_background_panel_init (CcBackgroundPanel *panel)
   g_signal_connect_object (panel->settings, "changed", G_CALLBACK (on_settings_changed), panel, G_CONNECT_SWAPPED);
 
   /* Interface settings */
-  reload_color_scheme_toggles (panel);
+  setup_accent_color_toggles (panel);
+  reload_color_scheme (panel);
+
+  g_signal_connect_object (panel->interface_settings,
+                           "changed::" INTERFACE_ACCENT_COLOR_KEY,
+                           G_CALLBACK (reload_accent_color_toggles),
+                           panel,
+                           G_CONNECT_SWAPPED);
 
   g_signal_connect_object (panel->interface_settings,
                            "changed::" INTERFACE_COLOR_SCHEME_KEY,
-                           G_CALLBACK (reload_color_scheme_toggles),
+                           G_CALLBACK (reload_color_scheme),
                            panel,
                            G_CONNECT_SWAPPED);
 

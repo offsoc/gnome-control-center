@@ -62,6 +62,7 @@ sources = common_sources + files(
   'bg-recent-source.c',
   'bg-source.c',
   'bg-wallpapers-source.c',
+  'cc-accent-color.c',
   'cc-background-chooser.c',
   'cc-background-item.c',
   'cc-background-paintable.c',
