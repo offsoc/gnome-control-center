@@ -144,11 +144,12 @@ is_valid_username_child_watch_cb (GPid pid,
                                 valid = TRUE;
                                 break;
                         case E_BAD_ARG:
-                                tip = _("The username should usually only consist of lower case letters from a-z, digits and the following characters: - _");
+                                /* Translators: '%c' is an invalid character, such as @, #, etc... */
+                                tip = g_strdup_printf (_("Usernames cannot include %c"), data->username[strlen(data->username)-1]);
                                 valid = FALSE;
                                 break;
                         case E_SUCCESS:
-                                tip = _("Sorry, that user name isn’t available. Please try another.");
+                                tip = _("Username is already in use — please choose another");
                                 valid = FALSE;
                                 break;
                 }
@@ -177,6 +178,7 @@ is_valid_username_async (const gchar *username,
         gchar *argv[6];
         GPid pid;
         GError *error = NULL;
+        gsize max_username_length = get_username_max_length ();
 
         task = g_task_new (NULL, cancellable, callback, callback_data);
         g_task_set_source_tag (task, is_valid_username_async);
@@ -189,8 +191,9 @@ is_valid_username_async (const gchar *username,
                 g_task_return_boolean (task, FALSE);
                 return;
         }
-        else if (strlen (username) > get_username_max_length ()) {
-                data->tip = g_strdup (_("The username is too long."));
+        else if (strlen (username) > max_username_length) {
+                data->tip = g_strdup_printf (_("Usernames must have fewer than %ld characters"),
+                                             max_username_length);
                 g_task_return_boolean (task, FALSE);
                 return;
         }
