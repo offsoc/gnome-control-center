@@ -105,7 +105,7 @@ pw_error_hint (gint error)
         case PWQ_ERROR_ROTATED:
                 return C_("Password hint", "Try changing the password a bit more.");
         case PWQ_ERROR_CRACKLIB_CHECK:
-                return C_("Password hint", "Try to avoid common words.");
+                return C_("Password hint", "Avoid common words");
         case PWQ_ERROR_PALINDROME:
                 return C_("Password hint", "Try to avoid reordering existing words.");
         case PWQ_ERROR_MIN_DIGITS:
@@ -125,11 +125,11 @@ pw_error_hint (gint error)
         case PWQ_ERROR_MAX_SEQUENCE:
                 return C_("Password hint", "Try to avoid sequences like 1234 or abcd.");
         case PWQ_ERROR_MIN_LENGTH:
-                return C_("Password hint", "Password needs to be longer. Try to add more letters, numbers and punctuation.");
+                return C_("Password hint", "Password needs to be longer");
         case PWQ_ERROR_EMPTY_PASSWORD:
                 return C_("Password hint", "Mix uppercase and lowercase and try to use a number or two.");
         default:
-                return C_("Password hint", "Adding more letters, numbers and punctuation will make the password stronger.");
+                return C_("Password hint", "Valid passsword. Try adding more letters, numbers and punctuation");
         }
 }
 
@@ -167,6 +167,8 @@ pw_strength (const gchar  *password,
 
         if (length && length < pw_min_length())
                 *hint = pw_error_hint (PWQ_ERROR_MIN_LENGTH);
+        else if (level == 5)
+                *hint = _("Great password!");
         else
                 *hint = pw_error_hint (rv);
 
